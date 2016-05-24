@@ -509,7 +509,7 @@ class DockerDaemon(AgentCheck):
     def _report_cgroup_metrics(self, container, tags):
         try:
             for cgroup in CGROUP_METRICS:
-                stat_file = self._get_cgroup_file(cgroup["cgroup"], container['Id'], cgroup['file'])
+                stat_file = self._get_cgroup_from_proc(cgroup["cgroup"], container['_pid'], cgroup['file'])
                 stats = self._parse_cgroup_file(stat_file)
                 if stats:
                     for key, (dd_key, metric_func) in cgroup['metrics'].iteritems():
@@ -733,6 +733,12 @@ class DockerDaemon(AgentCheck):
         return percs
 
     # Cgroups
+    def _get_cgroup_from_proc(self, cgroup, pid, filename):
+        """Find a specific cgroup file, containing metrics to extract."""
+        params = {
+            "file": filename,
+        }
+        return DockerUtil.find_cgroup_from_proc(self._mountpoints, pid, cgroup) % (params)
 
     def _get_cgroup_file(self, cgroup, container_id, filename):
         """Find a specific cgroup file, containing metrics to extract."""

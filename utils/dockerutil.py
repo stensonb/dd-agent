@@ -183,6 +183,27 @@ class DockerUtil:
             raise Exception("Can't find mounted %s cgroups." % hierarchy)
 
     @classmethod
+    def find_cgroup_from_proc(cls, mountpoints, pid, subsys):
+        with open('/proc/{pid}/cgroup'.format(pid=pid), 'r') as fp:
+            lines = map(lambda x: x.split(':'), fp.read().splitlines())
+            subsystems = dict(zip(map(lambda x: x[1], lines), map(lambda x: x[2] if x[2][0] != '/' else x[2][1:], lines)))
+
+        if subsys not in subsystems and subsys == 'cpuacct':
+            for form in "{},cpu", "cpu,{}":
+                _subsys = form.format(subsys)
+                if _subsys in subsystems:
+                    subsys = _subsys
+                    break
+
+        if subsys in subsystems:
+            for mountpoint in mountpoints.itervalues():
+                stat_file_path = os.path.join(mountpoint, subsystems[subsys])
+                if subsys in mountpoint and os.path.exists(stat_file_path):
+                    return os.path.join(stat_file_path, '%(file)s')
+
+        raise MountException("Cannot find Docker cgroup directory. Be sure your system is supported.")
+
+    @classmethod
     def find_cgroup_filename_pattern(cls, mountpoints, container_id):
         # We try with different cgroups so that it works even if only one is properly working
         for mountpoint in mountpoints.itervalues():
