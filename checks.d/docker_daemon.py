@@ -833,6 +833,12 @@ class DockerDaemon(AgentCheck):
                 else:
                     continue
 
+                # if we match by pid that should be enough (?)
+                for _, container in container_dict.iteritems():
+                    if container['_pid'] == folder:
+                        container['_proc_root'] = os.path.join(proc_path, folder)
+                        continue
+
                 matches = re.findall(CONTAINER_ID_RE, cpuacct)
                 if matches:
                     container_id = matches[-1]
