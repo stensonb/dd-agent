@@ -799,7 +799,13 @@ class DockerDaemon(AgentCheck):
                 path = os.path.join(proc_path, folder, 'cgroup')
                 with open(path, 'r') as f:
                     content = [line.strip().split(':') for line in f.readlines()]
-            except IOError as e:
+
+                selinux_policy = ''
+                path = os.path.join(proc_path, folder, 'attr', 'current')
+                if os.path.exists(path):
+                    with open(path, 'r') as f:
+                        selinux_policy = f.readlines()[0]
+            except IOError, e:
                 #  Issue #2074
                 self.log.debug("Cannot read %s, "
                                "process likely raced to finish : %s" %
@@ -811,6 +817,9 @@ class DockerDaemon(AgentCheck):
             try:
                 for line in content:
                     if line[1] in ('cpu,cpuacct', 'cpuacct,cpu', 'cpuacct') and 'docker' in line[2]:
+                        cpuacct = line[2]
+                        break
+                    elif line[1] in ('cpu,cpuacct', 'cpuacct,cpu', 'cpuacct') and 'docker' in selinux_policy:
                         cpuacct = line[2]
                         break
                 else:
