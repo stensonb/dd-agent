@@ -307,6 +307,14 @@ class DockerDaemon(AgentCheck):
 
             containers_by_id[container['Id']] = container
 
+            # grab pid
+            try:
+                inspect_dict = self.docker_client.inspect_container(container_name)
+                container['_pid'] = inspect_dict['State']['Pid']
+            except Exception as e:
+                self.log.debug("Unable to inspect Docker container: %s", e)
+
+
         for tags, count in running_containers_count.iteritems():
             self.gauge("docker.containers.running", count, tags=list(tags))
 
