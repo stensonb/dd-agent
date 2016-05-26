@@ -145,6 +145,7 @@ class DockerDaemon(AgentCheck):
         self.init()
         self._service_discovery = agentConfig.get('service_discovery') and \
             agentConfig.get('service_discovery_backend') == 'docker'
+        self._custom_cgroups = init_config.get('custom_cgroups', False)
 
     def is_k8s(self):
         return 'KUBERNETES_PORT' in os.environ
@@ -231,8 +232,11 @@ class DockerDaemon(AgentCheck):
                 self.log.warning('Could not retrieve kubernetes labels: %s' % str(e))
                 self.kube_labels = {}
 
+        # containers running with custom cgroups?
+        custom_cgroups = instance.get('custom_cgroups', self._custom_cgroups)
+
         # Get the list of containers and the index of their names
-        containers_by_id = self._get_and_count_containers()
+        containers_by_id = self._get_and_count_containers(custom_cgroups)
         containers_by_id = self._crawl_container_pids(containers_by_id)
 
         # Send events from Docker API
@@ -265,7 +269,7 @@ class DockerDaemon(AgentCheck):
             # It's not an important metric, keep going if it fails
             self.warning("Failed to count Docker images. Exception: {0}".format(e))
 
-    def _get_and_count_containers(self):
+    def _get_and_count_containers(self, custom_cgroups=False):
         """List all the containers from the API, filter and count them."""
 
         # Querying the size of containers is slow, we don't do it at each run
@@ -307,12 +311,14 @@ class DockerDaemon(AgentCheck):
 
             containers_by_id[container['Id']] = container
 
-            # grab pid
-            try:
-                inspect_dict = self.docker_client.inspect_container(container_name)
-                container['_pid'] = inspect_dict['State']['Pid']
-            except Exception as e:
-                self.log.debug("Unable to inspect Docker container: %s", e)
+            # grab pid via API if custom cgroups - otherwise we won't process find when
+            # crawling for pids.
+            if custom_cgroups:
+                try:
+                    inspect_dict = self.docker_client.inspect_container(container_name)
+                    container['_pid'] = inspect_dict['State']['Pid']
+                except Exception as e:
+                    self.log.debug("Unable to inspect Docker container: %s", e)
 
 
         for tags, count in running_containers_count.iteritems():
@@ -833,12 +839,6 @@ class DockerDaemon(AgentCheck):
                 else:
                     continue
 
-                # if we match by pid that should be enough (?)
-                for _, container in container_dict.iteritems():
-                    if container['_pid'] == folder:
-                        container['_proc_root'] = os.path.join(proc_path, folder)
-                        continue
-
                 matches = re.findall(CONTAINER_ID_RE, cpuacct)
                 if matches:
                     container_id = matches[-1]
@@ -847,7 +847,13 @@ class DockerDaemon(AgentCheck):
                         continue
                     container_dict[container_id]['_pid'] = folder
                     container_dict[container_id]['_proc_root'] = os.path.join(proc_path, folder)
-            except Exception as e:
+                else: # if we match by pid that should be enough (?) - O(n) ugh!
+                    for _, container in container_dict.iteritems():
+                        if container.get('_pid') == int(folder):
+                            container['_proc_root'] = os.path.join(proc_path, folder)
+                            break
+
+            except Exception, e:
                 self.warning("Cannot parse %s content: %s" % (path, str(e)))
                 continue
         return container_dict
