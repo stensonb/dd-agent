@@ -183,8 +183,9 @@ class DockerUtil:
             raise Exception("Can't find mounted %s cgroups." % hierarchy)
 
     @classmethod
-    def find_cgroup_from_proc(cls, mountpoints, pid, subsys):
-        with open('/proc/{pid}/cgroup'.format(pid=pid), 'r') as fp:
+    def find_cgroup_from_proc(cls, mountpoints, pid, subsys, docker_root='/'):
+        proc_path = os.path.join(docker_root, 'proc', str(pid), 'cgroup')
+        with open(proc_path, 'r') as fp:
             lines = map(lambda x: x.split(':'), fp.read().splitlines())
             subsystems = dict(zip(map(lambda x: x[1], lines), map(lambda x: x[2] if x[2][0] != '/' else x[2][1:], lines)))
 

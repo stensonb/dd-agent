@@ -752,7 +752,7 @@ class DockerDaemon(AgentCheck):
         params = {
             "file": filename,
         }
-        return DockerUtil.find_cgroup_from_proc(self._mountpoints, pid, cgroup) % (params)
+        return DockerUtil.find_cgroup_from_proc(self._mountpoints, pid, cgroup, self.docker_util._docker_root) % (params)
 
     def _get_cgroup_file(self, cgroup, container_id, filename):
         """Find a specific cgroup file, containing metrics to extract."""
