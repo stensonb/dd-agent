@@ -18,6 +18,9 @@ from utils.singleton import Singleton
 class MountException(Exception):
     pass
 
+class CGroupException(Exception):
+    pass
+
 # Default docker client settings
 DEFAULT_TIMEOUT = 5
 DEFAULT_VERSION = 'auto'
@@ -152,7 +155,14 @@ class DockerUtil:
     def get_mountpoints(self, cgroup_metrics):
         mountpoints = {}
         for metric in cgroup_metrics:
-            mountpoints[metric["cgroup"]] = self.find_cgroup(metric["cgroup"])
+            try:
+                mountpoints[metric["cgroup"]] = self.find_cgroup(metric["cgroup"])
+            except CGroupException as e:
+                log.exception("Unable to find cgroup: %s", e)
+
+        if not len(mountpoints):
+            raise CGroupException("No cgroups were found!")
+
         return mountpoints
 
     def find_cgroup(self, hierarchy):
@@ -180,7 +190,7 @@ class DockerUtil:
 
             if candidate is not None:
                 return os.path.join(self._docker_root, candidate)
-            raise Exception("Can't find mounted %s cgroups." % hierarchy)
+            raise CGroupException("Can't find mounted %s cgroups." % hierarchy)
 
     @classmethod
     def find_cgroup_from_proc(cls, mountpoints, pid, subsys, docker_root='/'):
