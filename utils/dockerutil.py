@@ -212,6 +212,17 @@ class DockerUtil:
                 if subsys in mountpoint and os.path.exists(stat_file_path):
                     return os.path.join(stat_file_path, '%(file)s')
 
+                # CentOS7 will report `cpu,cpuacct` and then have the path on
+                # `cpuacct,cpu`
+                if 'cpuacct' in mountpoint and 'cpuacct' in subsys:
+                    flipkey = subsys.split(',')
+                    flipkey = "{},{}".format(flipkey[1], flipkey[0]) if len(flipkey) > 1 else flipkey[0]
+                    mountpoint = os.path.join(os.path.split(mountpoint)[0], flipkey)
+                    stat_file_path = os.path.join(mountpoint, subsystems[subsys])
+                    if os.path.exists(stat_file_path):
+                        return os.path.join(stat_file_path, '%(file)s')
+
+
         raise MountException("Cannot find Docker cgroup directory. Be sure your system is supported.")
 
     @classmethod
