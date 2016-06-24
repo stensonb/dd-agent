@@ -10,7 +10,13 @@ namespace :ci do
 
     task install: ['ci:common:install']
 
-    task before_script: ['ci:common:before_script']
+    task before_script: ['ci:common:before_script'] do
+      site_name = 'Test-Website-1'
+      site_folder = "#{ENV['INTEGRATIONS_DIR']}/iis_#{site_name}"
+      sh %(New-Item -ItemType Directory -Force #{site_folder})
+      sh %(Get-WindowsFeature -Name Web-*)
+      sh %(Import-Module WebAdministration; New-WebSite -Name #{site_name} -PhysicalPath #{site_folder})
+    end
 
     task script: ['ci:common:script'] do
       this_provides = [

@@ -21,6 +21,8 @@ cache:
   - C:\projects\dd-agent\.cache
   - C:\projects\dd-agent\vendor\cache
   - C:\projects\dd-agent\embedded
+services:
+  - iis
 install:
   - gem install bundler --quiet --no-ri --no-rdoc
   - bundle install
@@ -30,5 +32,5 @@ install:
   - "%PYTHON%/Scripts/easy_install.exe %PYWIN_PATH%"
 build: off
 test_script:
-  - set PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%
-  - bundle exec rake ci:run[windows]
+  - ps: '$env:Path += ";$env:PYTHON;$env:PYTHON\Scripts"'
+  - ps: bundle exec rake ci:run[windows]
