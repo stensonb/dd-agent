@@ -145,7 +145,7 @@ class DockerDaemon(AgentCheck):
         self.init()
         self._service_discovery = agentConfig.get('service_discovery') and \
             agentConfig.get('service_discovery_backend') == 'docker'
-        self._custom_cgroups = init_config.get('custom_cgroups', False)
+        self._custom_cgroups = _is_affirmative(init_config.get('custom_cgroups', False))
 
     def is_k8s(self):
         return 'KUBERNETES_PORT' in os.environ
@@ -233,7 +233,7 @@ class DockerDaemon(AgentCheck):
                 self.kube_labels = {}
 
         # containers running with custom cgroups?
-        custom_cgroups = instance.get('custom_cgroups', self._custom_cgroups)
+        custom_cgroups = _is_affirmative(instance.get('custom_cgroups', self._custom_cgroups))
 
         # Get the list of containers and the index of their names
         containers_by_id = self._get_and_count_containers(custom_cgroups)
@@ -311,7 +311,7 @@ class DockerDaemon(AgentCheck):
 
             containers_by_id[container['Id']] = container
 
-            # grab pid via API if custom cgroups - otherwise we won't process find when
+            # grab pid via API if custom cgroups - otherwise we won't find process when
             # crawling for pids.
             if custom_cgroups:
                 try:
@@ -830,10 +830,8 @@ class DockerDaemon(AgentCheck):
 
             try:
                 for line in content:
-                    if line[1] in ('cpu,cpuacct', 'cpuacct,cpu', 'cpuacct') and 'docker' in line[2]:
-                        cpuacct = line[2]
-                        break
-                    elif line[1] in ('cpu,cpuacct', 'cpuacct,cpu', 'cpuacct') and 'docker' in selinux_policy:
+                    if line[1] in ('cpu,cpuacct', 'cpuacct,cpu', 'cpuacct') and \
+                            ('docker' in line[2] or 'docker' in selinux_policy):
                         cpuacct = line[2]
                         break
                 else:
